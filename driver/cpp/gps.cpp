@@ -26,27 +26,39 @@ GPS::GPS(std::string dev):portName_(std::move(dev)){
 
 void GPS::process(void){
     while(true){
-        std::cout <<"Waiting for data" << std::endl;
-
         uchar dollar[1];        // $ 
         uchar mode[6];          // GNVTG, GNHDT, GPGGA, GPRMC
         boost::asio::streambuf buf;        // REAL data
+        uchar check_sum[3];     // sum check, * + 2bytes
 
         boost::asio::read(*sp_, boost::asio::buffer(dollar, 1));
         // first find the $, and then check GNVTG, GNHDT, GPGGA, GPRMC
         if(dollar[0] == '$'){
-            cout << " Find `$` " << endl;
+            cout << "--> Find `$` " << endl;
             boost::asio::read(*sp_, boost::asio::buffer(mode, 6));
             if (mode[0] == 'G' && mode[1] == 'P' && mode[2] == 'G' && mode[3] == 'G' && mode[4] == 'A' && mode[5] == ','){
                 cout << "GPGGA Header get" << endl;
                 // process GPGGA
                 boost::asio::read_until(*sp_, buf, '*');
                 cout << "GPGGA Data get" << endl;
+                boost::asio::read(*sp_, boost::asio::buffer(check_sum, 3));
                 std::istream is(&buf);
-                std::string data;
-                std::getline(is, data, '*'); // Read up to the '*' character
-                std::cout << "Received: " << data << std::endl;
-                parseGPGGA(data);
+                std::string core_data;
+                std::getline(is, core_data, '*'); // Read up to the '*' character
+                std::cout << "Received: " << core_data << std::endl;
+
+                // // check sum.
+                // uchar checkSum=0;
+                // for(int i=0; i<6; ++i){     // GPGGA check.
+                //     checkSum ^= mode[i];
+                // }
+                // for(uchar ch:core_data){
+                //     checkSum ^= static_cast<uchar>(ch);
+                // }
+                // cout <<"Check sum: " << int(checkSum) << endl;
+                // cout << "Input sum: " << int(check_sum[1]) << ", " << int(check_sum[2]) << endl;
+
+                parseGPGGA(core_data);
             }
             if (mode[0] == 'G' && mode[1] == 'N' && mode[2] == 'V' && mode[3] == 'T' && mode[4] == 'G' && mode[5] == ','){
                 cout << "GNVTG data get" << endl;
@@ -61,10 +73,7 @@ void GPS::process(void){
                 cout << "GPGGA data get" << endl;
             }
         }
-
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-
     }
 }
 
@@ -73,19 +82,19 @@ void GPS::process(void){
 
 //// GPGGA format:
 // GPGGA
-// hhmmss.ss: utc time
-// llll.ll: ddmm.mmmm, longitude
-// a: N or S
-// yyyy.yy: ddmm.mmmm, algitude
-// b: E or W
-// q: quality (int)
-// x: number of sittelite
-// h: HDOP
-// M: M(meter)
-// m.m: elevation
-// M: M(meter)
-// sss: (差分GPS数据的年龄（无效时为空）)
-// ccc: (差分站ID（无效时为空）)
+// 0 hhmmss.ss: utc time
+// 1 llll.ll: ddmm.mmmm, latitude
+// 2 a: N or S
+// 3 yyyyy.yy: dddmm.mmmm, longtitude
+// 4 b: E or W
+// 5 q: quality (int)
+// 6 x: number of sittelite
+// 7 h: HDOP
+// 8 M: M(meter)
+// 9 m.m: altitude
+// 10  M: M(meter)
+// 11  sss: (差分GPS数据的年龄（无效时为空）)
+// 12  ccc: (差分站ID（无效时为空）)
 // *
 // sum1, sum2
 
@@ -99,8 +108,37 @@ bool GPS::parseGPGGA(const std::string& raw_gpgga){
         parsed_data.push_back(item);
     }
 
-    for(auto data:parsed_data){
-        cout << raw_gpgga << endl;
+    string utc_str = parsed_data[0];
+    string lati_str = parsed_data[1];
+    string long_str = parsed_data[3];
+    string alti_str = parsed_data[9];
+
+    latitude = stod(lati_str.substr(0, 2)) + stod(lati_str.substr(2)) / 60.0f;
+    longitude = stod(long_str.substr(0,3)) + stod(long_str.substr(3)) / 60.0f;
+    altitude = stod(alti_str);
+
+    satellite_number = stoi(parsed_data[6]);
+    mode = stoi(parsed_data[5]);
+    hhop = stod(parsed_data[7]);
+
+    cout << "--------------------------- Parsed GPS data: ---------------------------" << endl;
+    cout << "(" << latitude << ", " << longitude << ", " << altitude << ")" << endl;
+    cout << "Mode: " << mode << endl;
+    cout << "Number of satellite: " << satellite_number << endl;
+    cout << "hhop: " << hhop << endl;
+    cout << "------------------------------------------------------------------------" << endl;
+
+    if(mode != 4){
+        cout <<"Warning. Mode not 4" << endl;
+        return false;
+    }
+    if(hhop > 2){
+        cout <<"Warning. Bad hhop" << endl;
+        return false;
+    }
+    if(satellite_number < 12){
+        cout <<"Warning. Too less satellite" << endl;
+        return false;
     }
 
     return true;
