@@ -34,18 +34,18 @@ void GPS::process(void){
         boost::asio::read(*sp_, boost::asio::buffer(dollar, 1));
         // first find the $, and then check GNVTG, GNHDT, GPGGA, GPRMC
         if(dollar[0] == '$'){
-            cout << "--> Find `$` " << endl;
+            // cout << "--> Find `$` " << endl;
             boost::asio::read(*sp_, boost::asio::buffer(mode, 6));
             if (mode[0] == 'G' && mode[1] == 'P' && mode[2] == 'G' && mode[3] == 'G' && mode[4] == 'A' && mode[5] == ','){
-                cout << "GPGGA Header get" << endl;
+                // cout << "GPGGA Header get" << endl;
                 // process GPGGA
                 boost::asio::read_until(*sp_, buf, '*');
-                cout << "GPGGA Data get" << endl;
+                // cout << "GPGGA Data get" << endl;
                 boost::asio::read(*sp_, boost::asio::buffer(check_sum, 3));
                 std::istream is(&buf);
                 std::string core_data;
                 std::getline(is, core_data, '*'); // Read up to the '*' character
-                std::cout << "Received: " << core_data << std::endl;
+                // std::cout << "Received: " << core_data << std::endl;
 
                 // // check sum.
                 // uchar checkSum=0;
@@ -73,7 +73,6 @@ void GPS::process(void){
                 cout << "GPGGA data get" << endl;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -90,14 +89,15 @@ void GPS::process(void){
 // 5 q: quality (int)
 // 6 x: number of sittelite
 // 7 h: HDOP
-// 8 M: M(meter)
-// 9 m.m: altitude
-// 10  M: M(meter)
-// 11  sss: (差分GPS数据的年龄（无效时为空）)
-// 12  ccc: (差分站ID（无效时为空）)
+// 8 altitude: 
+// 9 M
+// 10 shuipingmian gaodu
+// 11 M: M(meter)
+// 12 sss: (差分GPS数据的年龄（无效时为空）)
+// 13 ccc: (差分站ID（无效时为空）)
 // *
 // sum1, sum2
-
+// CR, LF
 
 bool GPS::parseGPGGA(const std::string& raw_gpgga){
     std::stringstream ss(raw_gpgga);
@@ -111,7 +111,7 @@ bool GPS::parseGPGGA(const std::string& raw_gpgga){
     string utc_str = parsed_data[0];
     string lati_str = parsed_data[1];
     string long_str = parsed_data[3];
-    string alti_str = parsed_data[9];
+    string alti_str = parsed_data[8];
 
     latitude = stod(lati_str.substr(0, 2)) + stod(lati_str.substr(2)) / 60.0f;
     longitude = stod(long_str.substr(0,3)) + stod(long_str.substr(3)) / 60.0f;
