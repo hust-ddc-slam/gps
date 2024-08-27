@@ -1,0 +1,10 @@
+（函数）
+	func_ProcessGPS:采集到的原始数据格式不正确，用该函数处理成正确格式
+	modify_gpsdata:处理完后的数据前两行不要，同时注释掉部分错误数据
+	loadGpsData:读取GPS数据，获取位置信息
+	save_gps_trajectory:获取GPS位置信息后，将其保存为算法所要求格式的轨迹文件
+（脚本）
+	test:测试单组数据，生成GPS轨迹文件，并绘制三维轨迹图
+	modify_gps:处理完后的数据前两行不要，同时注释掉部分错误数据
+	gps_dataprocessing:处理多组数据，返回处理后的GPS数据以及轨迹数据（代码会在原始数据文件的同级创建两个文件夹存放这些数据）
+	main：对比GPS轨迹以及算法规划出来的轨迹
